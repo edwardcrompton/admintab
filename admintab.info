@@ -1,0 +1,8 @@
+; $Id: admin_menu.info,v 1.5.2.2 2010/07/28 02:04:11 sun Exp $
+name = Administration Tab
+description = "Provides a customisable pop out administration tab"
+package = Other
+dependancies[] = menu_admin_per_menu
+depandancies[] = colorpicker
+core = 6.x
+

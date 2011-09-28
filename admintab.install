@@ -1,0 +1,16 @@
+<?php
+// $Id
+/**
+ * Implementation of hook_install().
+ */
+/*function admintab_install() {
+}*/
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function admintab_uninstall() {
+  db_query("DELETE FROM {menu_custom} WHERE menu_name = 'admintab'");
+  db_query("DELETE FROM {menu_links} WHERE module = 'admintab'");
+}
+?>

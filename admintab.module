@@ -1,0 +1,293 @@
+<?php
+// $Id
+    /*We could add the facility for placing menu items in different "groups" here. This could be done by placing the menu items in separate drupal menus but calling all of them in the
+     menu preprocess event to make them all render on the admintab.
+     This would mean that we have different menus to maintain in http://admintab/admin/build/menu/list and it might be difficult to tell which menus would appear on the admin tab and which are other types of menu.
+     We could build a custom interface for doing this.
+     Does not currently allow sub menu items.
+     
+     Transformation is 1px out in FF. Looks OK but to do any better may have to specifically add a top: value for IE to bring the tab to the same point as after the transform.
+     Could also increase the "height" of the tab prevent rounding errors occuring on the transform.
+    */
+
+
+/**
+ * Implementation of hook_enable().
+ */
+function admintab_enable() {
+  //Check to see if there are menu items left over from when this module was enabled previously.
+  $result = db_query("SELECT * FROM {menu_custom} WHERE menu_name = 'admintab'");
+  $num = _admintab_count($result);
+  if (!$num) _admintab_build_default_menus();
+}
+
+
+/*
+* Public function for resetting all menu items to defaults.
+*/
+function admintab_reset() {
+  _admintab_purge();
+  _admintab_build_default_menus();
+}
+
+
+/*
+ * Remove all trace of this module from the database.
+ */
+function _admintab_purge() {
+  db_query("DELETE FROM {menu_custom} WHERE menu_name = 'admintab'");
+  db_query("DELETE FROM {menu_links} WHERE module = 'admintab'");
+}
+
+
+/*
+ * Build default menu items.
+ */
+function _admintab_build_default_menus() {
+     
+    //Set up the database for the admin menu tab.
+    db_query("INSERT INTO {menu_custom} (menu_name, title, description) VALUES ('%s', '%s', '%s')", 'admintab', t('Admin Tab'), t('Shortcut links for administrators.'));
+    
+    //Add other links that we may want.
+    $links = array_merge(_admintab_misc_links(),_admintab_content_links());    
+  
+    //Separating out these loops incase we want to do anything else to the menu links before we create them
+    
+    //Create the menu links
+    $weight = -12;
+    foreach ($links as $item) {
+      $item['weight'] = $weight;
+      menu_link_save($item);
+      $weight+=3;
+    }
+    
+    menu_cache_clear('admintab');
+}
+
+
+/**
+ * Implementation of hook_help().
+ */
+function admintab_help($path, $arg) {
+  
+}
+
+
+/**
+ * Implementation of hook_perm().
+ */
+function admintab_perm() {
+  return array('access admintab', 'administer admintab');
+}
+
+
+/**
+ * Implementation of hook_menu().
+ */
+function admintab_menu() {
+  $items = array();
+  
+  $items['admin/settings/admintab'] = array(
+    'title' => t('Admin tabs module settings'),
+    'description' => t('Global settings for the admin tabs module'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('admintab_settings_form'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM
+   );
+  
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_init().
+ */
+function admintab_init() {
+  if (user_access ('access admintab')) {
+    //We need to get the various colours that the user has set for the admin tab and pass them to the javascript function
+    $background = variable_get('admintab_background_colour','#FFFFE0');
+    $links = variable_get('admintab_link_colour','#333333');
+    $titles = variable_get('admintab_title_colour','#00008B');
+    
+    //We'll automatically get a slightly darker version of the background colour for the border of the page tab.
+    $border = admintab_colordarken($background, $dif=20);
+    
+    drupal_add_css(drupal_get_path('module','admintab').'/admintab.css','module');
+    drupal_add_js(drupal_get_path('module','admintab').'/admintab.js','module');
+    drupal_add_js(array('admintab'=>array('backgroundColour' => $background, 'titleColour'=> $titles, 'linkColour' => $links, 'borderColour' => $border)), 'setting');
+  }
+}
+
+
+/**
+ * Implementation of hook_footer().
+ */
+function admintab_footer() {
+  if (user_access ('access admintab')) {
+    return theme('admintab');
+  }
+}
+
+
+function _admintab_count($result) {
+  while ($rec = db_fetch_object($result)) {
+    $db[$rec->menu_name] = $rec->menu_name;
+  }
+  return count($db);
+}
+
+
+/**
+ * Implementation of hook_theme().
+ */
+function admintab_theme() {
+  return array(
+    'admintab' => array (
+      'arguments'=> array('element' => NULL),
+      'template'=> 'admintab'
+    )
+  );
+}
+
+
+function template_preprocess_admintab(&$variables) {
+  
+  $navigation_links = menu_navigation_links('admintab');
+  
+  //We're going to split these up according to their paths
+  //Get all paths in the list of misc links to begin with
+  $misc_hrefs = _admintab_misc_links();
+
+  foreach ($misc_hrefs as $link) {
+    $hrefs[] = $link['link_path'];
+  }
+  
+  
+  foreach ($navigation_links as $link) {
+    if (strpos($link['href'], 'node/add') != 0) { //This should be tightened up so that we're searching for 'node/add'
+      $content_navigation_links[] = $link;
+    }
+    //else if (array_search ($link['href'], $hrefs)) {
+    else if (in_array($link['href'], $hrefs)) {
+      $misc_navigation_links[] = $link;
+    }
+    else {
+      $custom_navigation_links[] = $link;
+    }
+  }
+  
+  $variables['menu_links'] = array(
+                     'content'=> array('links' => theme('links', $content_navigation_links), 'title' => 'Content'),
+                     'misc' => array('links' => theme('links', $misc_navigation_links), 'title' => 'Misc'),
+                     'custom' => array('links' => theme('links', $custom_navigation_links), 'title' => 'Custom')
+                    );
+  
+  //if there are no variables to display then we need to show a message to convey this.
+  if (!isset($content_navigation_links) && !isset($misc_navigation_links) && !isset($custom_navigation_links)) {
+    $variables['no_links'] = TRUE;
+  }
+  
+}
+
+
+function _admintab_misc_links() {
+  //Get user id
+  global $user;
+  $uid = $user->uid;
+  
+  /*
+   * After adding any links to this list of defaults, run admintab_reset() from devel/php to rebuild the list of links in the database.
+   */
+  $links = array (
+                array('link_title'=>'My Account','link_path'=>'user/'.$uid),
+                array('link_title'=>'Content List','link_path'=>'admin/content/node/overview'),
+                array('link_title'=>'Blocks','link_path'=>'admin/build/block/list'),
+                array('link_title'=>'Modules','link_path'=>'admin/build/modules'),
+                array('link_title'=>'Themes','link_path'=>'admin/build/themes'),
+                array('link_title'=>'Admin Tab Menu','link_path'=>'admin/build/menu-customize/admintab'),
+                array('link_title'=>'Admin Tab Colours','link_path'=>'admin/settings/admintab')
+               );
+  
+  //Add the module specific data to these links.
+  foreach ($links as $link) {
+    $link['menu_name'] = 'admintab';
+    $link['module'] = 'admintab';
+    $items[] = $link;
+  }
+  return $items;
+}
+
+
+function _admintab_content_links() {
+  //Get the menu item details for node all links
+  $sql = "SELECT link_path, link_title FROM {menu_links} WHERE link_path LIKE '%s%' GROUP BY link_path";
+  $path = "node\/add\/%";
+  $result = db_query($sql, $path);
+
+  while ($link = db_fetch_array($result)) {
+    $link['menu_name'] = 'admintab';
+    $link['module'] = 'admintab';
+    $links[] = $link;
+  }
+  return $links;
+}
+
+
+function admintab_settings_form() {
+  $form = array();
+
+  //Get the existing colours if there are any, or defaults if there aren't.
+  $background = variable_get('admintab_background_colour','#FFFFE0');
+  $links = variable_get('admintab_link_colour','#333333');
+  $titles = variable_get('admintab_title_colour','#00008B');
+
+  $form['admintab_background_colour'] = array(
+    '#type' => (module_exists('colorpicker') ? 'colorpicker_' : '') . 'textfield',
+    '#title' => t('Admin tab background colour'),
+    '#description' => t('Background colour: Use the colour picker to select a colour or type the colour value into the edit field. '),
+    '#default_value' => variable_get('sample_color', $background),
+  );
+  
+  $form['admintab_link_colour'] = array(
+    '#type' => (module_exists('colorpicker') ? 'colorpicker_' : '') . 'textfield',
+    '#title' => t('Link colour'),
+    '#description' => t('Link colour: Use the colour picker to select a colour or type the colour value into the edit field. '),
+    '#default_value' => variable_get('sample_color', $links),
+  );
+  
+  $form['admintab_title_colour'] = array(
+    '#type' => (module_exists('colorpicker') ? 'colorpicker_' : '') . 'textfield',
+    '#title' => t('Menu titles colour'),
+    '#description' => t('Title text: Use the colour picker to select a colour or type the colour value into the edit field. '),
+    '#default_value' => variable_get('sample_color', $titles),
+  );
+
+  return system_settings_form($form);
+}
+
+
+/*
+ * Colour darkening function.
+ * Thanks to http://www.jonasjohn.de/snippets/php/darker-color.htm for this.
+ */
+function admintab_colordarken($colour, $dif=20){
+ 
+    $colour = str_replace('#', '', $colour);
+    if (strlen($colour) != 6){ return '000000'; }
+    $rgb = '';
+ 
+    for ($x=0;$x<3;$x++){
+        $c = hexdec(substr($colour,(2*$x),2)) - $dif;
+        $c = ($c < 0) ? 0 : dechex($c);
+        $rgb .= (strlen($c) < 2) ? '0'.$c : $c;
+    }
+ 
+    return '#'.$rgb;
+}
+
+
+
+
+
+?>

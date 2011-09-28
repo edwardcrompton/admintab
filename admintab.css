@@ -1,0 +1,98 @@
+#admintab {
+    position: fixed;
+    left: -2px;
+    top: 10%;
+    overflow: visible;
+}
+
+#admintab .container {
+    background-color: lightyellow;
+    width: 15em;
+    min-height: 20em;
+    float: left;
+    -moz-border-radius-topright: 10px;
+    -moz-border-radius-bottomright: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border: 2px solid white;
+    border-left: 0px;
+    border-right: 2px solid khaki;
+    border-bottom: 2px solid khaki;
+    border-left: 0px;
+    padding-bottom: 2em;
+    position: relative;
+    z-index: 99;
+}
+
+#admintab .links li a {
+    color: #333;
+}
+
+#admintab .links li a:hover {
+    color: darkblue;
+}
+
+#admintab .links {
+    border-bottom: 1px solid white;
+    margin-left: 1.5em;
+    margin-right: 1.5em;
+    padding-bottom: 0.5em;
+}
+
+#admintab .last .links {
+    border-bottom: 0;
+}
+
+#admintab .links li {
+    display: block;
+    clear: left;
+}
+
+#admintab .tabtitle {
+    padding-left: 1em;
+    margin-top: 1em;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #00008B;
+}
+
+#admintab p {
+    padding-top: 1em;
+}
+
+#admintab hr {
+    color: khaki;
+    background-color: khaki;
+    height: 2px;
+    margin: 0 1.5em 0 1.5em;
+}
+
+
+.admintab-tab {
+    position: relative;
+    top: 20px;
+    z-index: 99;
+    -moz-border-radius-topright: 5px;
+    -moz-border-radius-bottomright: 5px;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    cursor:pointer;
+}
+
+
+.admintab-tab:hover {
+    -moz-box-shadow: 2px 2px 8px #888;
+    -webkit-box-shadow: 2px 2px 8px #888;
+    -o-box-shadow: 2px 2px 8px #888;
+}
+
+
+.admintab-tab .label {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.admintab .filler {
+    margin: 9em 1.5em 7em 1.5em;
+}
+
